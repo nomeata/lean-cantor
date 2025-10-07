@@ -1,0 +1,6 @@
+name = "cantor"
+version = "0.1.0"
+defaultTargets = ["Cantor"]
+
+[[lean_lib]]
+name = "Cantor"
