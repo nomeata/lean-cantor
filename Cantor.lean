@@ -275,47 +275,45 @@ def cantor_cons' (x : Bit) (i : Nat) (a : ∀ j, j + 1 = i → Bit)  : Bit :=
 -- set_option trace.Elab.definition.wf true
 
 mutual
-    def forsome (p : Cantor -> Bool) (h : HasModulus p) : Bool :=
-        hack p h (find p h)
-    termination_by (modulus p h, if modulus p h = 0 then 0 else 1, 0)
-    decreasing_by
-    · grind
+  def forsome (p : Cantor -> Bool) (h : HasModulus p) : Bool :=
+      hack p h (find p h)
+  termination_by (modulus p h, if modulus p h = 0 then 0 else 1, 0)
+  decreasing_by grind
 
-    def find (p : Cantor -> Bool) (h : HasModulus p) : Cantor := fun i =>
-      have b := forsome (fun a => p (true # a)) (has_modulus_cons h)
-      (b # find (fun a => p (b # a)) (has_modulus_cons h)) i
-    termination_by i => (modulus p h, if modulus p h = 0 then 1 else 0, i)
-    decreasing_by
-    · by_cases modulus p h = 0
-      next h0 =>
-        have : modulus (fun a => p (true # a)) (has_modulus_cons h) = 0 := by
-            apply Nat.eq_zero_of_le_zero
-            have := succ_module_cons_le (x := true) h
-            omega
-        apply Prod.Lex.right'
-        · apply succ_module_cons_le
-        · apply Prod.Lex.left
-          simp [*]
-      next hnn =>
-        apply Prod.Lex.left
-        apply Nat.lt_of_le_of_lt
-        · apply succ_module_cons h
-        · exact Nat.sub_one_lt hnn
-    · by_cases modulus p h = 0
-      next h0 =>
-        have : modulus (fun a => p (b # a)) (has_modulus_cons h) = 0 := by
-            have := succ_module_cons_le (x := b) h
-            omega
-        apply Prod.Lex.right'
-        · apply succ_module_cons_le
-        · apply Prod.Lex.right'
-          · simp [*, b]
-          · omega
-      next hnn =>
-        apply Prod.Lex.left
-        apply Nat.lt_of_le_of_lt
-        · apply succ_module_cons h
-        · exact Nat.sub_one_lt hnn
+  def find (p : Cantor -> Bool) (h : HasModulus p) : Cantor := fun i =>
+    have b := forsome (fun a => p (true # a)) (has_modulus_cons h)
+    (b # find (fun a => p (b # a)) (has_modulus_cons h)) i
+  termination_by i => (modulus p h, if modulus p h = 0 then 1 else 0, i)
+  decreasing_by
+  · by_cases modulus p h = 0
+    next h0 =>
+      have : modulus (fun a => p (true # a)) (has_modulus_cons h) = 0 := by
+          have := succ_module_cons_le (x := true) h
+          grind
+      apply Prod.Lex.right'
+      · apply succ_module_cons_le
+      · apply Prod.Lex.left
+        simp [*]
+    next hnn =>
+      apply Prod.Lex.left
+      apply Nat.lt_of_le_of_lt
+      · apply succ_module_cons h
+      · exact Nat.sub_one_lt hnn
+  · by_cases modulus p h = 0
+    next h0 =>
+      have : modulus (fun a => p (b # a)) (has_modulus_cons h) = 0 := by
+          have := succ_module_cons_le (x := b) h
+          grind
+      apply Prod.Lex.right'
+      · apply succ_module_cons_le
+      · apply Prod.Lex.right'
+        · simp [*, b]
+        · omega
+    next hnn =>
+      apply Prod.Lex.left
+      apply Nat.lt_of_le_of_lt
+      · apply succ_module_cons h
+      · exact Nat.sub_one_lt hnn
 end
 
 def fifth_true (a : Cantor) : Bool := a 5
