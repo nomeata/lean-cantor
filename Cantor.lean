@@ -13,6 +13,24 @@ def Cantor.cons (x : Bit) (a : Cantor) : Cantor := fun i =>
 
 infix:60 " # " => Cantor.cons
 
+namespace Partial
+mutual
+  partial def forsome (p : Cantor → Bool) : Bool :=
+    p (find p)
+
+  partial def find (p : Cantor → Bool) : Cantor :=
+    have b := forsome (fun a => p (true # a))
+    (b # find (fun a => p (b # a)))
+end
+
+def fifth_false : Cantor → Bool := fun a => not (a 5)
+
+/-- info: [true, true, true, true, true, false, true, true, true, true] -/
+#guard_msgs in
+#eval List.ofFn (fun (i : Fin 10) => find fifth_false i)
+
+end Partial
+
 @[simp, grind =] theorem tail_cons_eq (a : Cantor) : (x # a).tail = a := by
   funext i; simp [Cantor.tail, Cantor.cons]
 
