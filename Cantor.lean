@@ -2,7 +2,7 @@ import Mathlib.Data.Nat.Find
 
 abbrev Bit := Bool
 
-def Cantor : Type := Nat -> Bit
+def Cantor : Type := Nat → Bit
 
 def Cantor.head (a : Cantor) : Bit := a 0
 
@@ -32,20 +32,14 @@ def fifth_false : Cantor → Bool := fun a => not (a 5)
 
 end Partial
 
-@[simp, grind =] theorem tail_cons_eq (a : Cantor) : (x # a).tail = a := by
-  funext i; simp [Cantor.tail, Cantor.cons]
-
-@[simp, grind =] theorem head_cons_tail_eq (a : Cantor) : a.head # a.tail = a := by
-  funext i; cases i <;> rfl
-
 -- Extensional (!) modulus of uniform continuity
-def HasModulus (p : Cantor -> α) := ∃ n, ∀ a b : Cantor, (∀ i < n, a i = b i) → p a = p b
+def HasModulus (p : Cantor → α) := ∃ n, ∀ a b : Cantor, (∀ i < n, a i = b i) → p a = p b
 
 @[ext] structure CantorPred where
-  pred : Cantor -> Bool
+  pred : Cantor → Bool
   hasModulus : HasModulus pred
 
-instance : CoeFun CantorPred (fun _ => Cantor -> Bool) where
+instance : CoeFun CantorPred (fun _ => Cantor → Bool) where
   coe cp := cp.pred
 
 namespace CantorPred
@@ -65,23 +59,21 @@ theorem eq_of_modulus_eq_0 (hm : p.modulus = 0) : ∀ a b, p a = p b := by
   apply p.eq_of_modulus
   simp [hm]
 
-theorem has_modulus_cons : HasModulus (fun a => p (b # a)) := by
-  obtain ⟨n, h_n⟩ := p.hasModulus
-  cases n with
-  | zero => exists 0; grind
-  | succ m =>
-    exists m
-    intro a b heq
-    simp
-    apply h_n
-    intro i hi
-    cases i
-    · rfl
-    · grind
-
 def comp_cons (b : Bit) : CantorPred where
   pred := fun a => p (b # a)
-  hasModulus := has_modulus_cons p
+  hasModulus := by
+    obtain ⟨n, h_n⟩ := p.hasModulus
+    cases n with
+    | zero => exists 0; grind
+    | succ m =>
+      exists m
+      intro a b heq
+      simp
+      apply h_n
+      intro i hi
+      cases i
+      · rfl
+      · grind
 
 @[simp, grind =] theorem comp_cons_pred (x : Bit) (a : Cantor) :
   (p.comp_cons x) a = p (x # a) := rfl
@@ -100,9 +92,6 @@ theorem comp_cons_modulus (x : Bit) :
     · grind
 grind_pattern comp_cons_modulus => (p.comp_cons x).modulus
 
-theorem comp_cons_modulus_le (b : Bit) :
-    (p.comp_cons b).modulus ≤ p.modulus := by grind
-
 @[wf_preprocess]
 theorem coe_wf (p : CantorPred) :
     (wfParam p) f = p (if _ : p.modulus = 0 then fun _ => false else f) := by
@@ -111,6 +100,16 @@ theorem coe_wf (p : CantorPred) :
   next => rfl
 
 end CantorPred
+
+namespace Almost
+mutual
+  partial def forsome (p : CantorPred) : Bool := p (find p)
+
+  partial def find (p : CantorPred) : Cantor := fun i =>
+    have b := forsome (p.comp_cons true)
+    (b # find (p.comp_cons b)) i
+end
+end Almost
 
 def cantor_cons' (x : Bit) (i : Nat) (a : ∀ j, j + 1 = i → Bit) : Bit :=
   match i with
@@ -144,6 +143,12 @@ def fifth_false : CantorPred where
 /-- info: [true, true, true, true, true, false, true, true, true, true] -/
 #guard_msgs in
 #eval List.ofFn (fun (i : Fin 10) => find fifth_false i)
+
+@[simp, grind =] theorem tail_cons_eq (a : Cantor) : (x # a).tail = a := by
+  funext i; simp [Cantor.tail, Cantor.cons]
+
+@[simp, grind =] theorem head_cons_tail_eq (a : Cantor) : a.head # a.tail = a := by
+  funext i; cases i <;> rfl
 
 theorem find_correct (p : CantorPred) (h_exists : ∃ a, p a) : p (find p) := by
   by_cases h0 : p.modulus = 0
@@ -207,7 +212,7 @@ def Comp.eval : Comp α → Cantor → α
   | ret r, _ => r
   | ask r, p => (r p.head).eval p.tail
 
-instance : CoeFun (Comp α) (fun _ => Cantor -> α) where
+instance : CoeFun (Comp α) (fun _ => Cantor → α) where
   coe cp := cp.eval
 
 @[grind] def Comp.height : Comp α → Nat
@@ -260,3 +265,26 @@ noncomputable def Comp.ofCantorPred (p : CantorPred) : Comp Bool :=
 theorem Comp.ofCantorPred_asCantorPred (p : CantorPred) :
     (Comp.ofCantorPred p).asCantorPred = p := by
   ext1; exact compApprox_correct p.eq_of_modulus
+
+namespace Fast
+
+def findBit (p : Bit → Bool) : Bit :=
+  if p false then false else true
+
+def branch (x : Bit) (l r : Cantor) : Cantor :=
+  fun n =>
+    if n = 0      then x
+    else if 2 ∣ n then r ((n - 2) / 2)
+                  else l ((n - 1) / 2)
+
+mutual
+  partial def forsome (p : Cantor -> Bool) : Bool :=
+    p (find p)
+
+  partial def find (p : Cantor -> Bool) : Cantor :=
+    let x := findBit (fun x => forsome (fun l => forsome (fun r => p (branch x l r))))
+    let l := find (fun l => forsome (fun r => p (branch x l r)))
+    let r := find (fun r => p (branch x l r))
+    branch x l r
+end
+end Fast
