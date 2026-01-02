@@ -8,8 +8,9 @@ def Cantor.head (a : Cantor) : Bit := a 0
 
 def Cantor.tail (a : Cantor) : Cantor := fun i => a (i + 1)
 
-def Cantor.cons (x : Bit) (a : Cantor) : Cantor := fun i =>
-  if i == 0 then x else a (i - 1)
+@[simp, grind] def Cantor.cons (x : Bit) (a : Cantor) : Cantor
+  | 0 => x
+  | i+1 => a i
 
 infix:60 " # " => Cantor.cons
 
@@ -34,17 +35,11 @@ end Partial
 @[simp, grind =] theorem tail_cons_eq (a : Cantor) : (x # a).tail = a := by
   funext i; simp [Cantor.tail, Cantor.cons]
 
-@[simp, grind =] theorem head_cons_tail_eq (a : Cantor) : a.head # Cantor.tail a = a := by
-  funext i; grind [Cantor.tail, Cantor.cons, Cantor.head]
-
-def eqUpTo (i : Nat) (a b : Cantor) : Prop := ∀ j < i, a j = b j
-
-theorem eqUpTo_cons (i : Nat) (x : Bit) (a b : Cantor) :
-    eqUpTo i a b → eqUpTo (i + 1) (x # a) (x # b) := by
-  grind [eqUpTo, Cantor.cons]
+@[simp, grind =] theorem head_cons_tail_eq (a : Cantor) : a.head # a.tail = a := by
+  funext i; cases i <;> rfl
 
 -- Extensional (!) modulus of uniform continuity
-def HasModulus (p : Cantor -> Bool) := ∃ n, ∀ a b : Cantor, eqUpTo n a b → p a = p b
+def HasModulus (p : Cantor -> Bool) := ∃ n, ∀ a b : Cantor, (∀ i < n, a i = b i) → p a = p b
 
 structure CantorPred where
   pred : Cantor -> Bool
@@ -60,7 +55,7 @@ variable (p : CantorPred)
 noncomputable def modulus : Nat :=
   open Classical in Nat.find p.hasModulus
 
-theorem eq_of_modulus : ∀a b : Cantor, eqUpTo p.modulus a b → p a = p b := by
+theorem eq_of_modulus : ∀a b : Cantor, (∀ i < p.modulus, a i = b i) → p a = p b := by
   open Classical in
   unfold modulus
   exact Nat.find_spec p.hasModulus
@@ -68,13 +63,21 @@ theorem eq_of_modulus : ∀a b : Cantor, eqUpTo p.modulus a b → p a = p b := b
 theorem eq_of_modulus_eq_0 (hm : p.modulus = 0) : ∀ a b, p a = p b := by
   intro a b
   apply p.eq_of_modulus
-  simp [hm, eqUpTo]
+  simp [hm]
 
 theorem has_modulus_cons : HasModulus (fun a => p (b # a)) := by
   obtain ⟨n, h_n⟩ := p.hasModulus
   cases n with
-  | zero => exists 0; grind [eqUpTo]
-  | succ m => exists m; grind [eqUpTo, eqUpTo_cons]
+  | zero => exists 0; grind
+  | succ m =>
+    exists m
+    intro a b heq
+    simp
+    apply h_n
+    intro i hi
+    cases i
+    · rfl
+    · grind
 
 def comp_cons (b : Bit) : CantorPred where
   pred := fun a => p (b # a)
@@ -89,10 +92,12 @@ theorem comp_cons_modulus (x : Bit) :
   apply Nat.find_le
   intro a b hab
   apply p.eq_of_modulus
-  have := eqUpTo_cons _ x _ _ hab
   cases hh : p.modulus
-  · simp [eqUpTo]
-  · simp_all
+  · simp
+  · intro i hi
+    cases i
+    · grind
+    · grind
 grind_pattern comp_cons_modulus => (p.comp_cons x).modulus
 
 theorem comp_cons_modulus_le (b : Bit) :
@@ -107,11 +112,13 @@ theorem coe_wf (p : CantorPred) :
 
 end CantorPred
 
-def cantor_cons' (x : Bit) (i : Nat) (a : ∀ j, j + 1 = i → Bit)  : Bit :=
-  if h : i == 0 then x else a (i - 1) (by grind)
+def cantor_cons' (x : Bit) (i : Nat) (a : ∀ j, j + 1 = i → Bit) : Bit :=
+  match i with
+  | 0 => x
+  | j + 1 => a j (by grind)
 
 @[wf_preprocess] theorem cantor_cons_congr (b : Bit) (a : Cantor) (i : Nat) :
-  (b # a) i = cantor_cons' b i (fun j _ => a j) := rfl
+  (b # a) i = cantor_cons' b i (fun j _ => a j) := by cases i <;> rfl
 
 mutual
   def forsome (p : CantorPred) : Bool := p (find p)
