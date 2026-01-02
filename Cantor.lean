@@ -39,9 +39,9 @@ end Partial
   funext i; cases i <;> rfl
 
 -- Extensional (!) modulus of uniform continuity
-def HasModulus (p : Cantor -> Bool) := ∃ n, ∀ a b : Cantor, (∀ i < n, a i = b i) → p a = p b
+def HasModulus (p : Cantor -> α) := ∃ n, ∀ a b : Cantor, (∀ i < n, a i = b i) → p a = p b
 
-structure CantorPred where
+@[ext] structure CantorPred where
   pred : Cantor -> Bool
   hasModulus : HasModulus pred
 
@@ -197,3 +197,66 @@ theorem forevery_correct (p : CantorPred) :
     forevery p ↔ (∀ a, p a) := by
   simp [forevery, CantorPred.comp_neg]
   grind [forsome_correct]
+
+
+inductive Comp α where
+  | ret (r : α)
+  | ask (k : Bit → Comp α)
+
+def Comp.eval : Comp α → Cantor → α
+  | ret r, _ => r
+  | ask r, p => (r p.head).eval p.tail
+
+instance : CoeFun (Comp α) (fun _ => Cantor -> α) where
+  coe cp := cp.eval
+
+@[grind] def Comp.height : Comp α → Nat
+  | ret _ => 0
+  | ask r => max (r true).height (r false).height + 1
+
+theorem Comp.eqUpToHeight (p : Comp α) (a b : Cantor) (h : ∀ i < p.height, a i = b i) : p a = p b := by
+  induction p generalizing a b
+  case ret => rfl
+  case ask r ih =>
+    have : a.head = b.head := h 0 (by grind)
+    specialize ih b.head a.tail b.tail
+    simp [eval, this]
+    apply ih
+    intro i hi
+    apply h
+    cases _ : b.head <;> grind
+
+theorem Comp.hasModulus (p : Comp α) : HasModulus p.eval :=
+  ⟨p.height, Comp.eqUpToHeight p⟩
+
+def Comp.asCantorPred (p : Comp Bool) : CantorPred where
+  pred := p.eval
+  hasModulus := p.hasModulus
+
+def compApprox (n : Nat) (f : Cantor → α) : Comp α :=
+  match n with
+  | 0 => .ret (f (fun _ => true))
+  | n+1 => .ask (fun b => compApprox n (fun a => f (b # a)))
+
+theorem compApprox_correct (hmod : ∀ a b, (∀ i < n, a i = b i) → f a = f b) :
+    (compApprox n f).eval = f := by
+  funext c
+  induction n generalizing f c
+  case zero =>
+    grind [compApprox, Comp.eval]
+  case succ n ih =>
+    simp [compApprox, Comp.eval]
+    rw [ih]
+    case hmod =>
+      intro a b heq
+      apply hmod
+      intro i hi
+      cases i <;> grind
+    grind
+
+noncomputable def Comp.ofCantorPred (p : CantorPred) : Comp Bool :=
+  compApprox p.modulus p.pred
+
+theorem Comp.ofCantorPred_asCantorPred (p : CantorPred) :
+    (Comp.ofCantorPred p).asCantorPred = p := by
+  ext1; exact compApprox_correct p.eq_of_modulus
