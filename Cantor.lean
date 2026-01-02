@@ -13,10 +13,10 @@ def Cantor.cons (x : Bit) (a : Cantor) : Cantor := fun i =>
 
 infix:60 " # " => Cantor.cons
 
-@[simp, grind] theorem tail_cons_eq (a : Cantor) : (x # a).tail = a := by
+@[simp, grind =] theorem tail_cons_eq (a : Cantor) : (x # a).tail = a := by
   funext i; simp [Cantor.tail, Cantor.cons]
 
-@[simp, grind] theorem head_cons_tail_eq (a : Cantor) : a.head # Cantor.tail a = a := by
+@[simp, grind =] theorem head_cons_tail_eq (a : Cantor) : a.head # Cantor.tail a = a := by
   funext i; grind [Cantor.tail, Cantor.cons, Cantor.head]
 
 def eqUpTo (i : Nat) (a : Cantor) (b : Cantor) : Bool :=
@@ -26,9 +26,7 @@ def eqUpTo (i : Nat) (a : Cantor) (b : Cantor) : Bool :=
 
 theorem eqUpTo_cons (i : Nat) (x : Bit) (a b : Cantor) :
     eqUpTo i a b → eqUpTo (i + 1) (x # a) (x # b) := by
-  intro h
-  simp [eqUpTo]
-  simp [Cantor.cons, h]
+  grind [eqUpTo, Cantor.cons]
 
 def eqUpToRev (i : Nat) (a : Cantor) (b : Cantor) : Bool :=
   match i with
@@ -228,10 +226,10 @@ def comp_cons (b : Bit) : CantorPred where
   pred := fun a => p (b # a)
   hasModulus := has_modulus_cons p
 
-@[simp] theorem comp_cons_pred (x : Bit) (a : Cantor) :
+@[simp, grind =] theorem comp_cons_pred (x : Bit) (a : Cantor) :
   (p.comp_cons x) a = p (x # a) := rfl
 
-@[grind] theorem comp_cons_modulus (x : Bit) :
+theorem comp_cons_modulus (x : Bit) :
     (p.comp_cons x).modulus ≤ p.modulus - 1 := by
   open Classical in
   apply Nat.find_le
@@ -241,10 +239,10 @@ def comp_cons (b : Bit) : CantorPred where
   cases hh : p.modulus
   · simp [eqUpTo]
   · simp_all
+grind_pattern comp_cons_modulus => (p.comp_cons x).modulus
 
 theorem comp_cons_modulus_le (b : Bit) :
-    (p.comp_cons b).modulus ≤ p.modulus := by
-  apply Nat.le_trans (p.comp_cons_modulus b) (Nat.sub_le _ 1)
+    (p.comp_cons b).modulus ≤ p.modulus := by grind
 
 @[wf_preprocess]
 theorem coe_wf (p : CantorPred) :
@@ -259,7 +257,7 @@ def cantor_cons' (x : Bit) (i : Nat) (a : ∀ j, j + 1 = i → Bit)  : Bit :=
   if h : i == 0 then x else a (i - 1) (by grind)
 
 @[wf_preprocess] theorem cantor_cons_congr (b : Bit) (a : Cantor) (i : Nat) :
-    (b # a) i = cantor_cons' b i (fun j _ => a j) := rfl
+  (b # a) i = cantor_cons' b i (fun j _ => a j) := rfl
 
 mutual
   def forsome (p : CantorPred) : Bool := p (find p)
@@ -270,49 +268,21 @@ mutual
     have b := forsome (p.comp_cons true)
     (b # find (p.comp_cons b)) i
   termination_by i => (p.modulus, if p.modulus = 0 then 1 else 0, i)
-  decreasing_by
-  · by_cases p.modulus = 0
-    next h0 =>
-      have : (p.comp_cons true).modulus = 0 := by
-          have := p.comp_cons_modulus true
-          grind
-      apply Prod.Lex.right'
-      · apply p.comp_cons_modulus_le
-      · apply Prod.Lex.left
-        simp [*]
-    next hnn =>
-      apply Prod.Lex.left
-      apply Nat.lt_of_le_of_lt
-      · apply p.comp_cons_modulus
-      · exact Nat.sub_one_lt hnn
-  · by_cases p.modulus = 0
-    next h0 =>
-      have : (p.comp_cons b).modulus = 0 := by
-          have := p.comp_cons_modulus b
-          grind
-      apply Prod.Lex.right'
-      · apply p.comp_cons_modulus_le
-      · apply Prod.Lex.right'
-        · simp [*, b]
-        · omega
-    next hnn =>
-      apply Prod.Lex.left
-      apply Nat.lt_of_le_of_lt
-      · apply p.comp_cons_modulus
-      · exact Nat.sub_one_lt hnn
+  decreasing_by all_goals grind
 end
 
-def fifth_true : CantorPred where
-  pred a := a 5
+def fifth_false : CantorPred where
+  pred a := not (a 5)
   hasModulus := by
     exists 6
     intros a b h_eqUpTo_6
     have h_5_lt_6 : 5 < 6 := by omega
+    apply congrArg
     apply (eqUpTo_eq_eqUpToAbstract 6 a b).mp h_eqUpTo_6 5 h_5_lt_6
 
-/-- info: [true, true, true, true, true, true, true, true, true, true] -/
+/-- info: [true, true, true, true, true, false, true, true, true, true] -/
 #guard_msgs in
-#eval List.ofFn (fun (i : Fin 10) => find fifth_true i)
+#eval List.ofFn (fun (i : Fin 10) => find fifth_false i)
 
 theorem find_correct (p : CantorPred) (h_exists : ∃ a, p a) : p (find p) := by
   by_cases h0 : p.modulus = 0
@@ -326,7 +296,6 @@ theorem find_correct (p : CantorPred) (h_exists : ∃ a, p a) : p (find p) := by
     by_cases htrue : ∃ a, p (true # a)
     next =>
       have := find_correct (p.comp_cons true) htrue
-      simp only [CantorPred.comp_cons_pred] at this
       grind
     next =>
       have : b = false := by grind
@@ -367,6 +336,9 @@ theorem forevery_correct (p : CantorPred) :
     forevery p ↔ (∀ a, p a) := by
   simp [forevery, CantorPred.comp_neg]
   grind [forsome_correct]
+
+
+
 
 /-
 -- idea: clean innser_has_modulus up using
