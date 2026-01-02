@@ -37,62 +37,11 @@ end Partial
 @[simp, grind =] theorem head_cons_tail_eq (a : Cantor) : a.head # Cantor.tail a = a := by
   funext i; grind [Cantor.tail, Cantor.cons, Cantor.head]
 
-def eqUpTo (i : Nat) (a : Cantor) (b : Cantor) : Bool :=
-  match i with
-  | 0 => True
-  | n + 1 => a 0 == b 0 && eqUpTo n (Cantor.tail a) (Cantor.tail b)
+def eqUpTo (i : Nat) (a b : Cantor) : Prop := ∀ j < i, a j = b j
 
 theorem eqUpTo_cons (i : Nat) (x : Bit) (a b : Cantor) :
     eqUpTo i a b → eqUpTo (i + 1) (x # a) (x # b) := by
   grind [eqUpTo, Cantor.cons]
-
-def eqUpToAbstract (i : Nat) (a b : Cantor) : Prop := ∀j < i, a j = b j
-
-theorem eqUpTo_eq_eqUpToAbstract (i : Nat) (a b : Cantor)
-  : eqUpTo i a b ↔ eqUpToAbstract i a b
-  := by
-  induction i generalizing a b with
-  | zero => simp [eqUpTo, eqUpToAbstract]
-  | succ i IH =>
-    apply Iff.intro
-    · intro h_eqUpTo
-      simp [eqUpTo] at h_eqUpTo
-      have ⟨h_zero, h_tl⟩ := h_eqUpTo
-      clear h_eqUpTo
-
-      have IH' := (IH _ _).mp h_tl
-      clear IH
-      simp [eqUpToAbstract, Cantor.tail] at IH'
-
-      simp [eqUpToAbstract]
-      intro j h_j_leq_i
-      cases h_j_leq_i with
-      | refl => cases i with
-        | zero => exact h_zero
-        | succ i =>
-          apply IH'
-          simp
-      | step h_j_lt_i =>
-        cases j with
-        | zero => exact h_zero
-        | succ j =>
-          apply IH'
-          simp at h_j_lt_i
-          apply Nat.lt_iff_add_one_le.mpr
-          omega
-    · intro h_eqUpToAbstract
-      simp [eqUpTo]
-      apply And.intro
-      · apply h_eqUpToAbstract
-        simp
-      · apply (IH _ _).mpr
-        -- TODO: theorem-ify?
-        simp [eqUpToAbstract, Cantor.tail]
-        simp [eqUpToAbstract] at h_eqUpToAbstract
-        intro j h_j_lt_i
-        apply h_eqUpToAbstract
-        simp [h_j_lt_i]
-
 
 -- Extensional (!) modulus of uniform continuity
 def HasModulus (p : Cantor -> Bool) := ∃ n, ∀ a b : Cantor, eqUpTo n a b → p a = p b
@@ -183,7 +132,7 @@ def fifth_false : CantorPred where
     intros a b h_eqUpTo_6
     have h_5_lt_6 : 5 < 6 := by omega
     apply congrArg
-    apply (eqUpTo_eq_eqUpToAbstract 6 a b).mp h_eqUpTo_6 5 h_5_lt_6
+    apply h_eqUpTo_6 5 h_5_lt_6
 
 /-- info: [true, true, true, true, true, false, true, true, true, true] -/
 #guard_msgs in
