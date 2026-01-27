@@ -9,3 +9,15 @@ rev = "v4.27.0-rc1"
 
 [[lean_lib]]
 name = "Cantor"
+
+[[lean_lib]]
+name = "Chirality"
+
+[[lean_lib]]
+name = "FastFindTotal"
+
+[[lean_lib]]
+name = "FastTermination"
+
+[[lean_lib]]
+name = "CantorClifford"
